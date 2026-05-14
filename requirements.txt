@@ -1,4 +1,4 @@
 streamlit
 pandas
 matplotlib
-numpy
+numpy>=1.26,<3
