@@ -9,37 +9,104 @@ from validation import validate_filling_curve
 
 
 st.set_page_config(
-    page_title="Filling Curve Calculator",
+    page_title="Tank-Curves",
     layout="wide",
 )
 
 st.markdown("""
 <style>
 .block-container {
-    padding-top: 1rem;
-    padding-bottom: 1rem;
+    padding-top: 0.8rem;
+    padding-bottom: 0.8rem;
+    max-width: 1550px;
 }
 
-h1 {
-    font-size: 2.3rem !important;
-    line-height: 1.15 !important;
-    margin-bottom: 0.3rem !important;
+.main-title {
+    font-size: 0.8rem;
+    line-height: 1.0;
+    margin-bottom: 0.25rem;
+}
+            
+.section-title {
+    font-size: 1.45rem;
+    font-weight: 700;
+    line-height: 1.1;
+    margin-top: 0.2rem;
+    margin-bottom: 0.55rem;
 }
 
-[data-testid="stCaptionContainer"] {
-    margin-bottom: 1.2rem;
+h2, h3 {
+    margin-top: 0.25rem !important;
+    margin-bottom: 0.45rem !important;
+}
+
+/* Sidebar top spacing */
+section[data-testid="stSidebar"] > div {
+    padding-top: 0rem;
+}
+
+/* Sidebar compact layout */
+section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+    gap: 0.45rem;
+}
+
+/* Sidebar headers */
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3 {
+    margin-top: 0rem !important;
+    margin-bottom: 0.35rem !important;
+}
+
+/* Input labels tighter */
+section[data-testid="stSidebar"] label {
+    margin-bottom: 0rem !important;
+}
+
+/* Compact metrics */
+section[data-testid="stSidebar"] [data-testid="stMetric"] {
+    padding: 0.25rem 0.45rem;
+    border-radius: 0.45rem;
+}
+
+section[data-testid="stSidebar"] [data-testid="stMetricValue"] {
+    font-size: 1.25rem;
+}
+
+section[data-testid="stSidebar"] [data-testid="stMetricLabel"] {
+    font-size: 0.75rem;
+}
+
+.formula-card {
+    background-color: #173653;
+    border-radius: 0.5rem;
+    padding: 1.15rem 1.25rem;
+    min-height: 205px;
+    color: #2aa8ff;
+    font-size: 0.95rem;
+    line-height: 1.65;
+}
+
+.formula-card strong {
+    color: #2aa8ff;
 }
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("""
-<h1>Filling Curve Calculator</h1>
-""", unsafe_allow_html=True)
+st.markdown("""<h1 class="main-title">TankCurves</h1>""", unsafe_allow_html=True)
+
+
+horizontal_index = VESSEL_TYPES.index("Horizontal Tank") if "Horizontal Tank" in VESSEL_TYPES else 0
 
 with st.sidebar:
     st.header("Input parameters")
 
-    vessel_type = st.selectbox("Vessel type", VESSEL_TYPES)
+    vessel_type = st.selectbox(
+        "Vessel type",
+        VESSEL_TYPES,
+        index=horizontal_index,
+    )
+
     head_type = st.selectbox("Head type", HEAD_TYPES)
 
     outer_diameter_mm = st.number_input(
@@ -63,7 +130,11 @@ with st.sidebar:
         step=100.0,
     )
 
-    calculate_button = st.button("Calculate", type="primary")
+    calculate_button = st.button(
+        "Calculate",
+        type="primary",
+        use_container_width=True,
+    )
 
 
 head = get_head_parameters(
@@ -92,28 +163,73 @@ fig_head = draw_head_dimensions_preview(
 )
 
 
-# -------------------------------------------------
-# Top preview section
-# -------------------------------------------------
+def get_formula_box(head_type: str) -> str:
+    if head_type == "Torospherical Head (DIN 28011)":
+        return """
+        **DIN 28011**
 
-col_tank, col_head = st.columns(2)
+        r₁ = dₐ  
+        r₂ = 0.1 · dₐ  
+        h = 0.1935 · dₐ − 0.455 · s
+        """
 
-with col_tank:
-    st.subheader("Vessel preview")
-    st.pyplot(fig_tank, width="content")
+    if head_type == "Torospherical Head (DIN 28013)":
+        return """
+        **DIN 28013**
 
-with col_head:
-    st.subheader("Head preview")
-    st.pyplot(fig_head, width="content")
+        r₁ = 0.8 · dₐ  
+        r₂ = 0.154 · dₐ  
+        h = 0.255 · dₐ − 0.635 · s
+        """
+
+    if head_type == "Elliptical Head 2:1":
+        return """
+        **Elliptical Head 2:1**
+
+        r₁ ≈ 0.9 · dᵢ  
+        r₂ ≈ 0.17 · dᵢ  
+        h = dᵢ / 4
+        """
+
+    if head_type == "Hemispherical Head":
+        return """
+        **Hemispherical Head**
+
+        h = dᵢ / 2  
+
+        Head shape is a hemisphere.
+        """
+
+    if head_type == "Flat Head":
+        return """
+        **Flat Head**
+
+        h = 0  
+
+        Idealized flat end plate.
+        """
+
+    return ""
 
 
-# -------------------------------------------------
-# Geometry data section
-# -------------------------------------------------
+def render_formula_card(markdown_text: str) -> None:
+    html = markdown_text.strip()
+    html = html.replace("**", "")
+    html = html.replace("\n", "<br>")
 
-st.subheader("Geometry data")
+    st.markdown(
+        f"""
+        <div class="formula-card">
+            {html}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
 
 geometry_data = {
+    "Vessel type": vessel_type,
+    "Head type": head_type,
     "dₐ": f"{outer_diameter_mm:.1f} mm",
     "dᵢ": f"{inner_diameter_mm:.1f} mm",
     "s": f"{wall_thickness_mm:.1f} mm",
@@ -128,80 +244,28 @@ if head.r1_mm is not None:
 if head.r2_mm is not None:
     geometry_data["r₂"] = f"{head.r2_mm:.1f} mm"
 
-col_geometry, col_formula = st.columns([2.8, 0.75])
 
-with col_geometry:
-    type_col_1, type_col_2 = st.columns(2)
+st.dataframe(
+    pd.DataFrame([geometry_data]),
+    width="stretch",
+    hide_index=True,
+)
 
-    with type_col_1:
-        st.markdown(f"""
-        **Vessel type**  
-        {vessel_type}
-        """)
 
-    with type_col_2:
-        st.markdown(f"""
-        **Head type**  
-        {head_type}
-        """)
+col_vessel, col_head, col_formula = st.columns(3)
 
-    st.dataframe(
-        pd.DataFrame([geometry_data]),
-        width="stretch",
-        hide_index=True,
-    )
+with col_vessel:
+    st.markdown('<div class="section-title">Vessel preview</div>', unsafe_allow_html=True)
+    st.pyplot(fig_tank, width="stretch")
+
+with col_head:
+    st.markdown('<div class="section-title">Head preview</div>', unsafe_allow_html=True)
+    st.pyplot(fig_head, width="stretch")
 
 with col_formula:
-    if head_type == "Torospherical Head (DIN 28011)":
-        st.info("""
-        **DIN 28011**
+    st.markdown('<div class="section-title">Head formula</div>', unsafe_allow_html=True)
+    render_formula_card(get_formula_box(head_type))
 
-        r₁ = dₐ  
-        r₂ = 0.1 · dₐ  
-        h = 0.1935 · dₐ − 0.455 · s
-        """)
-
-    elif head_type == "Torospherical Head (DIN 28013)":
-        st.info("""
-        **DIN 28013**
-
-        r₁ = 0.8 · dₐ  
-        r₂ = 0.154 · dₐ  
-        h = 0.255 · dₐ − 0.635 · s
-        """)
-
-    elif head_type == "Elliptical Head 2:1":
-        st.info("""
-        **Elliptical Head 2:1**
-
-        r₁ ≈ 0.9 · dᵢ  
-        r₂ ≈ 0.17 · dᵢ  
-        h = dᵢ / 4  
-
-        """)
-
-    elif head_type == "Hemispherical Head":
-        st.info("""
-        **Hemispherical Head**
-
-        h = dᵢ / 2  
-
-        Head shape is a hemisphere.
-        """)
-
-    elif head_type == "Flat Head":
-        st.info("""
-        **Flat Head**
-
-        h = 0  
-
-        Idealized flat end plate.
-        """)
-
-
-# -------------------------------------------------
-# Calculation section
-# -------------------------------------------------
 
 if calculate_button:
     tank = TankInput(
@@ -219,32 +283,28 @@ if calculate_button:
 
         df = pd.DataFrame(result, columns=["Level (cm)", "Volume (m³)"])
 
-        st.subheader("Filling curve")
+        with st.sidebar:
+            #st.divider()
+            st.subheader("Results")
+            st.metric("Numerical", f"{validation['numerical_volume_m3']:.5f} m³")
+            st.metric("Reference", f"{validation['reference_volume_m3']:.5f} m³")
+            st.metric("Deviation", f"{validation['deviation_percent']:.4f} %")
 
-        col_plot, col_table = st.columns([1.25, 1])
+        header_left, header_right = st.columns([1.35, 1])
+
+        with header_left:
+            st.markdown("### Filling curve")
+
+        col_plot, col_table = st.columns([1.35, 1])
 
         with col_plot:
-            st.line_chart(df.set_index("Level (cm)"))
-
-            v1, v2, v3 = st.columns(3)
-            v1.metric("Numerical", f"{validation['numerical_volume_m3']:.5f} m³")
-            v2.metric("Reference", f"{validation['reference_volume_m3']:.5f} m³")
-            v3.metric("Deviation", f"{validation['deviation_percent']:.4f} %")
+            st.line_chart(df.set_index("Level (cm)"), height=300)
 
         with col_table:
             st.dataframe(
                 df,
                 width="stretch",
-                height=360,
-            )
-
-            csv_data = df.to_csv(index=False, sep=";").encode("utf-8")
-
-            st.download_button(
-                label="Download CSV",
-                data=csv_data,
-                file_name="filling_curve.csv",
-                mime="text/csv",
+                height=300,
             )
 
     except Exception as error:
